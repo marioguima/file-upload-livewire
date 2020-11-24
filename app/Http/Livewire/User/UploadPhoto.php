@@ -3,13 +3,20 @@
 namespace App\Http\Livewire\User;
 
 use Livewire\Component;
-use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+
+// base64 validation
+// https://github.com/crazybooot/base64-validation
+// composer require crazybooot/base64-validation
+
+// custom messages
+// php artisan vendor:publish --provider="Crazybooot\Base64Validation\Providers\ServiceProvider" --tag=config
+// setting up replace_validation_messages option to false on config/base64validation.php
+// add localizations for rules in standard Laravel way.
 
 class UploadPhoto extends Component
 {
-    use WithFileUploads;
-
     public $photo;
     private $tmpFileValidate;
 
@@ -23,7 +30,6 @@ class UploadPhoto extends Component
         'photo.base64dimensions' => 'The Max dimension for :attribute is 200x100 (width X height)',
     ];
 
-    // function handleFileUpload($id, $fileUploaded) {
     function handleFileUpload($id, $file) {
         $this->resetErrorBag();
         $validator = Validator::make(
@@ -48,23 +54,15 @@ class UploadPhoto extends Component
         foreach ($validator->getMessageBag()->getMessages()['file'] as $message) {
             $this->addError('photo', $message);
         };
-
-        // $this->photo = $fileUploaded;
-        // $this->validate(
-        //     ['photo' => 'base64image|base64dimensions:max_width=200,max_height=100'],
-        //     [
-        //         'photo.base64image' => 'Use only file image',
-        //         'photo.base64dimensions' => 'Max dimension is 200x100 (width X height)'
-        //     ]
-        // );
-
     }
 
     public function save()
     {
-        $this->validate([
-            'photo' => 'image|max:1024', // 1MB Max
-        ]);
-        $this->photo->store('photos');
+        $image = $this->photo;
+        preg_match("/data:image\/(.*?);/", $image, $image_extension); // extract the image extension
+        $image = preg_replace('/data:image\/(.*?);base64,/', '', $image); // remove the type part
+        $image = str_replace(' ', '+', $image);
+        $imageName = 'imagem_' . time() . '.' . $image_extension[1]; //generating unique file name;
+        Storage::disk('public')->put($imageName, base64_decode($image));
     }
 }
